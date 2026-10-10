@@ -32,6 +32,10 @@ main{max-width:1050px;margin:auto;padding:0 18px 50px}.section{display:none}.sec
 .viewer-hint{position:absolute;bottom:8px;left:0;right:0;text-align:center;font-size:12px;color:#d4e5ff;pointer-events:none;text-shadow:0 1px 5px black}
 .viewer-tools{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
 .viewer-tools button{padding:8px 13px}
+
+.modal[hidden]{display:none!important}.modal{position:fixed;inset:0;z-index:1000;background:#020511ee;overflow-y:auto;padding:env(safe-area-inset-top) 10px env(safe-area-inset-bottom);overscroll-behavior:contain}.modal-panel{max-width:690px;margin:10px auto 30px;background:#101a30;border:1px solid #405477;border-radius:22px;padding:16px}.modal-close{display:block;margin:0 0 12px auto;background:#263654}.modal .viewer{height:min(54vh,430px)}.modal .stats{margin-bottom:10px}
+.globe{background-image:radial-gradient(circle at 27% 20%,#ffffff55,transparent 42%),linear-gradient(to right,transparent 32%,#020817c9 100%),var(--texture)!important;background-size:100% 100%,100% 100%,auto 100%!important;background-position:center!important}
+.globe:after{display:none!important}
 </style>
 </head>
 <body>
@@ -66,15 +70,17 @@ const deepObjects=[
 ];
 function globe(name, size="large"){const textures={Mercury:"mercury",Venus:"venus",Earth:"earth",Mars:"mars",Jupiter:"jupiter",Saturn:"saturn",Uranus:"uranus",Neptune:"neptune"};const tex=textures[name];const ring=name==="Saturn"?"<i class='ring'></i>":"";return `<div class='globe-wrap ${size}' aria-label='Realistic textured ${name}'><div class='globe ${name.toLowerCase()}' style='--texture:url(https://www.solarsystemscope.com/textures/download/2k_${tex}.jpg)'></div>${ring}</div>`}
 function detailHTML(p){return `${p.year?`<div class="viewer" data-viewer="${p.name}"><div class="viewer-hint">Drag to rotate • Pinch to zoom</div></div><div class="viewer-tools"><button data-zoom="in">＋ Zoom in</button><button data-zoom="out">－ Zoom out</button><button data-reset="1">Reset view</button></div>`:""}<div class="detail-planet">${globe(p.name)}<div><div class="eyebrow">${p.type||p.kind}</div><h2>${p.name}</h2><p>${p.fact}</p></div></div><div class="stats">${p.distance?`<div class="stat"><strong>Distance / location</strong><span>${p.distance}</span></div>`:""}${p.day?`<div class="stat"><strong>Day length</strong><span>${p.day}</span></div>`:""}${p.year?`<div class="stat"><strong>Year length</strong><span>${p.year}</span></div>`:""}${p.moons?`<div class="stat"><strong>Known moons</strong><span>${p.moons}</span></div>`:""}${p.temp?`<div class="stat"><strong>Temperature</strong><span>${p.temp}</span></div>`:""}${p.air?`<div class="stat"><strong>Atmosphere</strong><span>${p.air}</span></div>`:""}</div>`}
-function choosePlanet(name){const p=planets.find(x=>x.name===name);document.getElementById("planetDetail").innerHTML=detailHTML(p);document.getElementById("systemDetail").innerHTML=detailHTML(p);const target=document.querySelector("#planets.active")?document.getElementById("planetDetail"):document.getElementById("systemDetail");setTimeout(()=>{target.scrollIntoView({behavior:"smooth",block:"start"});initViewers()},80)}
+function choosePlanet(name){const p=planets.find(x=>x.name===name);const modal=document.getElementById('planetModal');document.getElementById('modalBody').innerHTML=detailHTML(p);modal.hidden=false;document.body.style.overflow='hidden';modal.querySelector('.modal-close').focus();setTimeout(()=>window.initViewers?.(),50)}
+function closePlanet(){document.getElementById('planetModal').hidden=true;document.body.style.overflow='';window.initViewers?.()}
+document.addEventListener('click',e=>{if(e.target.closest('.modal-close')||e.target.id==='planetModal')closePlanet()});document.addEventListener('keydown',e=>{if(e.key==='Escape')closePlanet()});
 document.getElementById("planetGrid").innerHTML=planets.map(p=>`<button class="card" data-planet="${p.name}">${globe(p.name,"small")}<h3>${p.name}</h3><p>${p.type}</p><span class="pill">${p.moons} moon${p.moons==="1"?"":"s"}</span></button>`).join("");
 document.getElementById("orbit").innerHTML=`<button aria-label="Sun" data-planet="Earth">☀️</button>`+planets.map(p=>`<button aria-label="${p.name}" title="${p.name}" data-planet="${p.name}">${p.icon}</button>`).join("");
 function renderDeep(filter=""){const arr=deepObjects.filter(o=>(o.name+" "+o.kind+" "+o.fact).toLowerCase().includes(filter.toLowerCase()));document.getElementById("deepGrid").innerHTML=arr.map(o=>`<button class="card" data-deep="${o.name}"><div class="planet">${o.icon}</div><h3>${o.name}</h3><p>${o.kind}</p><span class="pill">Explore object</span></button>`).join("")||"<p>No matches yet. Try another search.</p>";document.querySelectorAll("[data-deep]").forEach(b=>b.addEventListener("click",()=>{const o=deepObjects.find(x=>x.name===b.dataset.deep);document.getElementById("deepDetail").innerHTML=detailHTML(o)}))}
 document.querySelectorAll("[data-tab]").forEach(b=>b.addEventListener("click",()=>{document.querySelectorAll("[data-tab]").forEach(x=>x.classList.toggle("active",x===b));document.querySelectorAll(".section").forEach(s=>s.classList.toggle("active",s.id===b.dataset.tab))}));
 document.addEventListener("click",e=>{const b=e.target.closest("[data-planet]");if(b)choosePlanet(b.dataset.planet)});
 document.getElementById("deepSearch").addEventListener("input",e=>renderDeep(e.target.value));
-choosePlanet("Earth");renderDeep();
-</script><script type="module">
+renderDeep();
+</script><div id="planetModal" class="modal" hidden role="dialog" aria-modal="true" aria-label="Planet details"><div class="modal-panel"><button class="modal-close" aria-label="Close planet information">✕ Close</button><div id="modalBody"></div></div></div><script type="module">
 import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.160.1/build/three.module.js";
 const texURLs={Mercury:"mercury",Venus:"venus",Earth:"earth",Mars:"mars",Jupiter:"jupiter",Saturn:"saturn",Uranus:"uranus",Neptune:"neptune"};
 let viewers=[];
@@ -97,7 +103,7 @@ function makeViewer(el){
  parent.querySelector('[data-reset]').onclick=()=>{camera.position.z=3.7;globe.rotation.set(0,0,0)};
  const state={el,renderer,scene,camera,globe,active:true};viewers.push(state);
 }
-window.initViewers=()=>{viewers.forEach(v=>{v.active=false;v.renderer.dispose();v.renderer.domElement.remove()});viewers=[];document.querySelectorAll(".section.active .viewer").forEach(makeViewer)};
+window.initViewers=()=>{viewers.forEach(v=>{v.active=false;v.renderer.dispose();v.renderer.domElement.remove()});viewers=[];document.querySelectorAll("#planetModal:not([hidden]) .viewer").forEach(makeViewer)};
 document.querySelectorAll("[data-tab]").forEach(b=>b.addEventListener("click",()=>setTimeout(window.initViewers,100)));
 window.initViewers();
 function frame(){requestAnimationFrame(frame);for(const v of viewers){if(v.el.isConnected){v.globe.rotation.y+=.001;v.renderer.render(v.scene,v.camera)}}}frame();
