@@ -47,6 +47,35 @@ jobs:
                       done=True;break
                   except Exception as exc: print('SOURCE FAILED',planet,url,repr(exc),flush=True)
               if not done: failures.append(planet)
+          if 'moon' in failures:
+              print('Trying Wikimedia Commons lunar equirectangular maps',flush=True)
+              from urllib.parse import urlencode
+              import json
+              queries=['Moon equirectangular texture','Lunar surface cylindrical projection','Moon texture 2k']
+              for term in queries:
+                  if 'moon' not in failures: break
+                  params={'action':'query','generator':'search','gsrsearch':term+' filetype:bitmap','gsrnamespace':'6','gsrlimit':'20','prop':'imageinfo','iiprop':'url|mime|size|extmetadata','iiurlwidth':'2048','format':'json'}
+                  api='https://commons.wikimedia.org/w/api.php?'+urlencode(params)
+                  try:
+                      req=Request(api,headers={'User-Agent':'CosmicExplorer/1.0 (educational space viewer; contact via GitHub)'})
+                      with urlopen(req,timeout=35) as response: results=json.load(response)
+                      pages=results.get('query',{}).get('pages',{})
+                      for page in pages.values():
+                          info=(page.get('imageinfo') or [{}])[0]
+                          if info.get('mime')!='image/jpeg': continue
+                          url=info.get('thumburl') or info.get('url')
+                          if not url: continue
+                          try:
+                              req=Request(url,headers={'User-Agent':'CosmicExplorer/1.0 (educational space viewer)'})
+                              with urlopen(req,timeout=35) as response: data=response.read()
+                              if not is_jpeg(data): continue
+                              Path('textures/moon.jpg').write_bytes(data)
+                              Path('textures/moon-source.txt').write_text('Source: '+page.get('title','')+'\\n'+info.get('descriptionurl','')+'\\nCheck the image description for attribution and license.\\n')
+                              failures.remove('moon')
+                              print('INSTALLED moon via Wikimedia Commons',len(data),url,flush=True)
+                              break
+                          except Exception as exc: print('Moon candidate failed:',repr(exc),flush=True)
+                  except Exception as exc: print('Wikimedia search failed:',repr(exc),flush=True)
           if failures: print('WARNING: Missing textures: '+', '.join(failures),flush=True)
           print('FINISHED: downloaded '+str(len(sources)-len(failures))+' of '+str(len(sources))+' maps',flush=True)
           PY
