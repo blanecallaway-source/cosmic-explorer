@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - '.github/workflows/planet-textures.yml'
+      - 'index.html'
 permissions:
   contents: write
 jobs:
