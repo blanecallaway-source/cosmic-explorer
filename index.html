@@ -28,7 +28,7 @@ main{max-width:1050px;margin:auto;padding:0 18px 50px}.section{display:none}.sec
 .card:focus-visible{outline:3px solid var(--cyan);outline-offset:3px}
 
 .viewer{height:310px;position:relative;border-radius:18px;overflow:hidden;background:radial-gradient(circle at center,#1a2d55,#050916 72%);touch-action:none;margin:10px 0 15px}
-.viewer canvas{width:100%;height:100%;display:block;touch-action:none}
+.viewer canvas{width:100%;height:100%;display:block;touch-action:none;opacity:0}.viewer.texture-ready canvas{opacity:1}.viewer-fallback{position:absolute;inset:0;display:grid;place-items:center;pointer-events:none}.viewer.texture-ready .viewer-fallback{display:none}.viewer-fallback .globe-wrap.large{width:220px;height:220px}.viewer-fallback .globe-wrap.large .globe{width:205px;height:205px;animation:spin 20s linear infinite}.viewer-fallback .ring{width:260px;height:75px;border-width:13px}
 .viewer-hint{position:absolute;bottom:8px;left:0;right:0;text-align:center;font-size:12px;color:#d4e5ff;pointer-events:none;text-shadow:0 1px 5px black}
 .viewer-tools{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
 .viewer-tools button{padding:8px 13px}
@@ -73,7 +73,7 @@ window.PHOTO_TEXTURES={Mercury:"https://www.solarsystemscope.com/textures/downlo
 // Prefer photographic planetary maps; retain embedded maps as offline fallback.
 Object.entries(window.PHOTO_TEXTURES).forEach(([name,url])=>{const img=new Image();img.onload=()=>{window.PLANET_TEXTURES[name.toLowerCase()]=url;document.querySelectorAll('.globe.'+name.toLowerCase()).forEach(el=>el.style.setProperty('--texture','url("'+url+'")'));};img.src=url;});
 function globe(name, size="large"){const textures={Mercury:"mercury",Venus:"venus",Earth:"earth",Mars:"mars",Jupiter:"jupiter",Saturn:"saturn",Uranus:"uranus",Neptune:"neptune"};const tex=textures[name];const ring=name==="Saturn"?"<i class='ring'></i>":"";return `<div class='globe-wrap ${size}' aria-label='Realistic textured ${name}'><div class='globe ${name.toLowerCase()}' style='--texture:url(${window.PLANET_TEXTURES[tex]})'></div>${ring}</div>`}
-function detailHTML(p){return `${p.year?`<div class="viewer" data-viewer="${p.name}"><div class="viewer-hint">Drag to rotate • Pinch to zoom</div></div><div class="viewer-tools"><button data-zoom="in">＋ Zoom in</button><button data-zoom="out">－ Zoom out</button><button data-reset="1">Reset view</button></div>`:""}<div class="detail-planet">${globe(p.name)}<div><div class="eyebrow">${p.type||p.kind}</div><h2>${p.name}</h2><p>${p.fact}</p></div></div><div class="stats">${p.distance?`<div class="stat"><strong>Distance / location</strong><span>${p.distance}</span></div>`:""}${p.day?`<div class="stat"><strong>Day length</strong><span>${p.day}</span></div>`:""}${p.year?`<div class="stat"><strong>Year length</strong><span>${p.year}</span></div>`:""}${p.moons?`<div class="stat"><strong>Known moons</strong><span>${p.moons}</span></div>`:""}${p.temp?`<div class="stat"><strong>Temperature</strong><span>${p.temp}</span></div>`:""}${p.air?`<div class="stat"><strong>Atmosphere</strong><span>${p.air}</span></div>`:""}</div>`}
+window.globeHTML=globe;function detailHTML(p){return `${p.year?`<div class="viewer" data-viewer="${p.name}"><div class="viewer-hint">Drag to rotate • Pinch to zoom</div></div><div class="viewer-tools"><button data-zoom="in">＋ Zoom in</button><button data-zoom="out">－ Zoom out</button><button data-reset="1">Reset view</button></div>`:""}<div class="detail-planet">${globe(p.name)}<div><div class="eyebrow">${p.type||p.kind}</div><h2>${p.name}</h2><p>${p.fact}</p></div></div><div class="stats">${p.distance?`<div class="stat"><strong>Distance / location</strong><span>${p.distance}</span></div>`:""}${p.day?`<div class="stat"><strong>Day length</strong><span>${p.day}</span></div>`:""}${p.year?`<div class="stat"><strong>Year length</strong><span>${p.year}</span></div>`:""}${p.moons?`<div class="stat"><strong>Known moons</strong><span>${p.moons}</span></div>`:""}${p.temp?`<div class="stat"><strong>Temperature</strong><span>${p.temp}</span></div>`:""}${p.air?`<div class="stat"><strong>Atmosphere</strong><span>${p.air}</span></div>`:""}</div>`}
 function choosePlanet(name){const p=planets.find(x=>x.name===name);const modal=document.getElementById('planetModal');document.getElementById('modalBody').innerHTML=detailHTML(p);modal.hidden=false;document.body.style.overflow='hidden';modal.querySelector('.modal-close').focus();setTimeout(()=>window.initViewers?.(),50)}
 function closePlanet(){document.getElementById('planetModal').hidden=true;document.body.style.overflow='';window.initViewers?.()}
 document.addEventListener('click',e=>{if(e.target.closest('.modal-close')||e.target.id==='planetModal')closePlanet()});document.addEventListener('keydown',e=>{if(e.key==='Escape')closePlanet()});
@@ -93,12 +93,12 @@ let viewers=[];
 function makeViewer(el){
  const name=el.dataset.viewer, w=el.clientWidth,h=el.clientHeight;
  const scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(40,w/h,.1,100);camera.position.z=3.7;
- const renderer=new THREE.WebGLRenderer({antialias:true,alpha:true});renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.setSize(w,h);el.prepend(renderer.domElement);
+ el.insertAdjacentHTML("afterbegin",`<div class="viewer-fallback">${window.globeHTML(name)}</div>`);const renderer=new THREE.WebGLRenderer({antialias:true,alpha:true});renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.setSize(w,h);el.prepend(renderer.domElement);
  const light=new THREE.DirectionalLight(0xffffff,2.4);light.position.set(-3,2,5);scene.add(light,new THREE.AmbientLight(0xffffff,.32));
  const globe=new THREE.Mesh(new THREE.SphereGeometry(1,64,48),new THREE.MeshStandardMaterial({color:0xb3b8c6,roughness:1}));scene.add(globe);
  const loader=new THREE.TextureLoader();loader.setCrossOrigin("anonymous");
  const fallback=window.PLANET_TEXTURES[texURLs[name]];
- const applyTexture=texture=>{texture.colorSpace=THREE.SRGBColorSpace;globe.material.map=texture;globe.material.color.set(0xffffff);globe.material.needsUpdate=true;};
+ const applyTexture=texture=>{texture.colorSpace=THREE.SRGBColorSpace;globe.material.map=texture;globe.material.color.set(0xffffff);globe.material.needsUpdate=true;el.classList.add("texture-ready");};
  // Use the embedded map first: it is available even when external image hosts block WebGL.
  loader.load(fallback,applyTexture,undefined,()=>{el.querySelector(".viewer-hint").textContent="Planet texture unavailable";});
  // Upgrade only after the external image has loaded successfully.
