@@ -74,7 +74,7 @@ window.PHOTO_TEXTURES={Mercury:"https://www.solarsystemscope.com/textures/downlo
 // Prefer photographic planetary maps; retain embedded maps as offline fallback.
 Object.entries(window.PHOTO_TEXTURES).forEach(([name,url])=>{const img=new Image();img.onload=()=>{window.PLANET_TEXTURES[name.toLowerCase()]=url;document.querySelectorAll('.globe.'+name.toLowerCase()).forEach(el=>el.style.setProperty('--texture','url("'+url+'")'));};img.src=url;});
 function globe(name, size="large"){const textures={Mercury:"mercury",Venus:"venus",Earth:"earth",Mars:"mars",Jupiter:"jupiter",Saturn:"saturn",Uranus:"uranus",Neptune:"neptune"};const tex=textures[name];const ring=name==="Saturn"?"<i class='ring'></i>":"";return `<div class='globe-wrap ${size}' aria-label='Realistic textured ${name}'><div class='globe ${name.toLowerCase()}' style='--texture:url(${window.PLANET_TEXTURES[tex]})'></div>${ring}</div>`}
-window.globeHTML=globe;function detailHTML(p){return `${p.year?`<div class="viewer" data-viewer="${p.name}"><div class="viewer-hint">Drag to rotate • Pinch to zoom</div></div><div class="viewer-tools"><button data-zoom="in">＋ Zoom in</button><button data-zoom="out">－ Zoom out</button><button data-reset="1">Reset view</button></div>`:""}<div class="detail-planet">${globe(p.name)}<div><div class="eyebrow">${p.type||p.kind}</div><h2>${p.name}</h2><p>${p.fact}</p></div></div><div class="stats">${p.distance?`<div class="stat"><strong>Distance / location</strong><span>${p.distance}</span></div>`:""}${p.day?`<div class="stat"><strong>Day length</strong><span>${p.day}</span></div>`:""}${p.year?`<div class="stat"><strong>Year length</strong><span>${p.year}</span></div>`:""}${p.moons?`<div class="stat"><strong>Known moons</strong><span>${p.moons}</span></div>`:""}${p.temp?`<div class="stat"><strong>Temperature</strong><span>${p.temp}</span></div>`:""}${p.air?`<div class="stat"><strong>Atmosphere</strong><span>${p.air}</span></div>`:""}</div>`}
+window.globeHTML=globe;function detailHTML(p){return `${p.year?`<div class="viewer" data-viewer="${p.name}"><div class="viewer-hint">Drag to rotate • Pinch to zoom</div></div><div class="viewer-tools"><button data-zoom="in">＋ Zoom in</button><button data-zoom="out">－ Zoom out</button><button data-reset="1">Reset view</button></div>`:""}<div class="detail-planet">${p.year?"":globe(p.name)}<div><div class="eyebrow">${p.type||p.kind}</div><h2>${p.name}</h2><p>${p.fact}</p></div></div><div class="stats">${p.distance?`<div class="stat"><strong>Distance / location</strong><span>${p.distance}</span></div>`:""}${p.day?`<div class="stat"><strong>Day length</strong><span>${p.day}</span></div>`:""}${p.year?`<div class="stat"><strong>Year length</strong><span>${p.year}</span></div>`:""}${p.moons?`<div class="stat"><strong>Known moons</strong><span>${p.moons}</span></div>`:""}${p.temp?`<div class="stat"><strong>Temperature</strong><span>${p.temp}</span></div>`:""}${p.air?`<div class="stat"><strong>Atmosphere</strong><span>${p.air}</span></div>`:""}</div>`}
 function choosePlanet(name){const p=planets.find(x=>x.name===name);const modal=document.getElementById('planetModal');document.getElementById('modalBody').innerHTML=detailHTML(p);modal.hidden=false;document.body.style.overflow='hidden';modal.querySelector('.modal-close').focus();setTimeout(()=>window.initViewers?.(),50)}
 function closePlanet(){document.getElementById('planetModal').hidden=true;document.body.style.overflow='';window.initViewers?.()}
 document.addEventListener('click',e=>{if(e.target.closest('.modal-close')||e.target.id==='planetModal')closePlanet()});document.addEventListener('keydown',e=>{if(e.key==='Escape')closePlanet()});
@@ -127,7 +127,18 @@ function makeViewer(el){
     }
    }
    ctx.putImageData(output,0,0);
-   if(name==='Saturn'){ctx.save();ctx.translate(cx,cy);ctx.rotate(-.3);ctx.strokeStyle='#cbb78b';ctx.lineWidth=Math.max(3,radius*.16);ctx.beginPath();ctx.ellipse(0,0,radius*1.55,radius*.43,0,0,Math.PI);ctx.stroke();ctx.restore();}
+   if(name==='Saturn'){
+     // Tilted rings: rear half is masked by the planet, near half crosses its foreground.
+     ctx.save();ctx.translate(cx,cy);ctx.rotate(-.35);
+     const bands=[[1.29,1.37,'#c9bda0',.42],[1.40,1.51,'#eee1bf',.78],[1.55,1.62,'#5d5146',.34],[1.67,1.82,'#d4c3a1',.72],[1.86,1.94,'#a58e6e',.55]];
+     // Paint only ring pixels outside the planetary disc on the far side.
+     ctx.save();ctx.beginPath();ctx.rect(-width,-height,width*2,height*2);ctx.arc(0,0,radius,0,Math.PI*2,true);ctx.clip('evenodd');
+     for(const [inner,outer,color,alpha] of bands){ctx.strokeStyle=color;ctx.globalAlpha=alpha;ctx.lineWidth=(outer-inner)*radius;ctx.beginPath();ctx.ellipse(0,0,(inner+outer)*radius/2,(inner+outer)*radius*.24,0,Math.PI,Math.PI*2);ctx.stroke();}
+     ctx.restore();
+     // The near half must overlap the planet, with a transparent Cassini gap.
+     for(const [inner,outer,color,alpha] of bands){ctx.strokeStyle=color;ctx.globalAlpha=alpha;ctx.lineWidth=(outer-inner)*radius;ctx.beginPath();ctx.ellipse(0,0,(inner+outer)*radius/2,(inner+outer)*radius*.24,0,0,Math.PI);ctx.stroke();}
+     ctx.restore();
+   }
  }};
  const down=e=>{canvas.setPointerCapture(e.pointerId);pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});dragging=true};
  const move=e=>{if(!pointers.has(e.pointerId))return;const prev=pointers.get(e.pointerId);pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
