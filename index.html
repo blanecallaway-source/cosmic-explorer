@@ -97,7 +97,12 @@ function makeViewer(el){
  const light=new THREE.DirectionalLight(0xffffff,2.4);light.position.set(-3,2,5);scene.add(light,new THREE.AmbientLight(0xffffff,.32));
  const globe=new THREE.Mesh(new THREE.SphereGeometry(1,64,48),new THREE.MeshStandardMaterial({color:0xb3b8c6,roughness:1}));scene.add(globe);
  const loader=new THREE.TextureLoader();loader.setCrossOrigin("anonymous");
- loader.load(PHOTO_TEXTURES[name]||window.PLANET_TEXTURES[texURLs[name]],texture=>{texture.colorSpace=THREE.SRGBColorSpace;globe.material.map=texture;globe.material.color.set(0xffffff);globe.material.needsUpdate=true},undefined,()=>{loader.load(window.PLANET_TEXTURES[texURLs[name]],texture=>{texture.colorSpace=THREE.SRGBColorSpace;globe.material.map=texture;globe.material.color.set(0xffffff);globe.material.needsUpdate=true;});});
+ const fallback=window.PLANET_TEXTURES[texURLs[name]];
+ const applyTexture=texture=>{texture.colorSpace=THREE.SRGBColorSpace;globe.material.map=texture;globe.material.color.set(0xffffff);globe.material.needsUpdate=true;};
+ // Use the embedded map first: it is available even when external image hosts block WebGL.
+ loader.load(fallback,applyTexture,undefined,()=>{el.querySelector(".viewer-hint").textContent="Planet texture unavailable";});
+ // Upgrade only after the external image has loaded successfully.
+ const remote=PHOTO_TEXTURES[name];if(remote){loader.load(remote,applyTexture,undefined,()=>{});}
  if(name==="Saturn"){const ring=new THREE.Mesh(new THREE.RingGeometry(1.28,2.05,128),new THREE.MeshBasicMaterial({color:0xd9c49a,side:THREE.DoubleSide,transparent:true,opacity:.7}));ring.rotation.x=1.22;ring.rotation.z=-.3;globe.add(ring)}
  let last=null,pointers=new Map(),pinch=0;
  renderer.domElement.addEventListener("pointerdown",e=>{renderer.domElement.setPointerCapture(e.pointerId);pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});last={x:e.clientX,y:e.clientY}});
