@@ -22,7 +22,7 @@ jobs:
           from urllib.request import Request, urlopen
           from urllib.parse import urljoin, urlparse
           from pathlib import Path
-          import imghdr, time
+          import time
           class Links(HTMLParser):
               def __init__(self): super().__init__(); self.links=[]
               def handle_starttag(self, tag, attrs):
