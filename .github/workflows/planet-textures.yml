@@ -4,7 +4,6 @@ on:
   push:
     paths:
       - '.github/workflows/planet-textures.yml'
-      - 'index.html'
 permissions:
   contents: write
 jobs:
@@ -14,26 +13,26 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: true
-      - name: Download high-resolution planet maps
+      - name: Download and validate 2K planet maps
+        shell: bash
         run: |
-          set -euxo pipefail
+          set -euo pipefail
           mkdir -p textures
           for planet in mercury venus_surface earth_daymap mars jupiter saturn uranus neptune; do
-            case "$planet" in
-              venus_surface) name=venus ;;
-              earth_daymap) name=earth ;;
-              *) name="$planet" ;;
-            esac
-            curl --fail --location --retry 3 --silent --show-error "https://www.solarsystemscope.com/textures/download/2k_${planet}.jpg" -o "textures/${name}.jpg"
+            case "$planet" in venus_surface) name=venus;; earth_daymap) name=earth;; *) name="$planet";; esac
+            url="https://www.solarsystemscope.com/textures/download/2k_${planet}.jpg"
+            curl --fail --location --retry 3 --silent --show-error "$url" -o "textures/${name}.jpg" || {
+              echo "::error::Could not download $planet from upstream"; exit 1;
+            }
             test "$(wc -c < "textures/${name}.jpg")" -gt 10000
+            file "textures/${name}.jpg" | grep -qi 'JPEG image'
           done
-      - name: Commit downloaded textures
+      - name: Commit actual texture files
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add textures/
-          git status --short
+          git add textures
           if ! git diff --cached --quiet; then
-            git commit -m "Add high-resolution photographic planetary maps"
+            git commit -m "Install photographic 2K planet textures"
             git push origin HEAD:main
           fi
