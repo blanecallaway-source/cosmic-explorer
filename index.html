@@ -28,7 +28,7 @@ main{max-width:1050px;margin:auto;padding:0 18px 50px}.section{display:none}.sec
 .card:focus-visible{outline:3px solid var(--cyan);outline-offset:3px}
 
 .viewer{height:310px;position:relative;border-radius:18px;overflow:hidden;background:radial-gradient(circle at center,#1a2d55,#050916 72%);touch-action:none;margin:10px 0 15px}
-.viewer canvas{width:100%;height:100%;display:block;touch-action:none;opacity:0}.viewer.texture-ready canvas{opacity:1}.viewer-fallback{position:absolute;inset:0;display:grid;place-items:center;pointer-events:none}.viewer.texture-ready .viewer-fallback{display:none}.viewer-fallback .globe-wrap.large{width:220px;height:220px}.viewer-fallback .globe-wrap.large .globe{width:205px;height:205px;animation:spin 20s linear infinite}.viewer-fallback .ring{width:260px;height:75px;border-width:13px}
+.viewer canvas{width:100%;height:100%;display:block;touch-action:none;opacity:1}.viewer.texture-ready canvas{opacity:1}.viewer-fallback{position:absolute;inset:0;display:grid;place-items:center;pointer-events:none}.viewer.texture-ready .viewer-fallback{display:none}.viewer-fallback .globe-wrap.large{width:220px;height:220px}.viewer-fallback .globe-wrap.large .globe{width:205px;height:205px;animation:spin 20s linear infinite}.viewer-fallback .ring{width:260px;height:75px;border-width:13px}
 .viewer-hint{position:absolute;bottom:8px;left:0;right:0;text-align:center;font-size:12px;color:#d4e5ff;pointer-events:none;text-shadow:0 1px 5px black}
 .viewer-tools{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
 .viewer-tools button{padding:8px 13px}
@@ -86,36 +86,61 @@ document.querySelectorAll("[data-tab]").forEach(b=>b.addEventListener("click",()
 document.addEventListener("click",e=>{const b=e.target.closest("[data-planet]");if(b)choosePlanet(b.dataset.planet)});
 document.getElementById("deepSearch").addEventListener("input",e=>renderDeep(e.target.value));
 renderDeep();
-</script><div id="planetModal" class="modal" hidden role="dialog" aria-modal="true" aria-label="Planet details"><div class="modal-panel"><button class="modal-close" aria-label="Close planet information">✕ Close</button><div id="modalBody"></div></div></div><script type="module">
-import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.160.1/build/three.module.js";
-const PHOTO_TEXTURES=window.PHOTO_TEXTURES||{};const texURLs={Mercury:"mercury",Venus:"venus",Earth:"earth",Mars:"mars",Jupiter:"jupiter",Saturn:"saturn",Uranus:"uranus",Neptune:"neptune"};
+</script><div id="planetModal" class="modal" hidden role="dialog" aria-modal="true" aria-label="Planet details"><div class="modal-panel"><button class="modal-close" aria-label="Close planet information">✕ Close</button><div id="modalBody"></div></div></div><script>
+/* One self-contained spherical renderer, shared embedded texture data, no CDN. */
 let viewers=[];
 function makeViewer(el){
- const name=el.dataset.viewer, w=el.clientWidth,h=el.clientHeight;
- const scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(40,w/h,.1,100);camera.position.z=3.7;
- el.insertAdjacentHTML("afterbegin",`<div class="viewer-fallback">${window.globeHTML(name)}</div>`);const renderer=new THREE.WebGLRenderer({antialias:true,alpha:true});renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.setSize(w,h);el.prepend(renderer.domElement);
- const light=new THREE.DirectionalLight(0xffffff,2.4);light.position.set(-3,2,5);scene.add(light,new THREE.AmbientLight(0xffffff,.32));
- const globe=new THREE.Mesh(new THREE.SphereGeometry(1,64,48),new THREE.MeshStandardMaterial({color:0xb3b8c6,roughness:1}));scene.add(globe);
- const loader=new THREE.TextureLoader();loader.setCrossOrigin("anonymous");
- const fallback=window.PLANET_TEXTURES[texURLs[name]];
- const applyTexture=texture=>{texture.colorSpace=THREE.SRGBColorSpace;globe.material.map=texture;globe.material.color.set(0xffffff);globe.material.needsUpdate=true;el.classList.add("texture-ready");};
- // Use the embedded map first: it is available even when external image hosts block WebGL.
- loader.load(fallback,applyTexture,undefined,()=>{el.querySelector(".viewer-hint").textContent="Planet texture unavailable";});
- // Upgrade only after the external image has loaded successfully.
- const remote=PHOTO_TEXTURES[name];if(remote){loader.load(remote,applyTexture,undefined,()=>{});}
- if(name==="Saturn"){const ring=new THREE.Mesh(new THREE.RingGeometry(1.28,2.05,128),new THREE.MeshBasicMaterial({color:0xd9c49a,side:THREE.DoubleSide,transparent:true,opacity:.7}));ring.rotation.x=1.22;ring.rotation.z=-.3;globe.add(ring)}
- let last=null,pointers=new Map(),pinch=0;
- renderer.domElement.addEventListener("pointerdown",e=>{renderer.domElement.setPointerCapture(e.pointerId);pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});last={x:e.clientX,y:e.clientY}});
- renderer.domElement.addEventListener("pointermove",e=>{if(!pointers.has(e.pointerId))return;const old=pointers.get(e.pointerId);pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});if(pointers.size===1){globe.rotation.y+=(e.clientX-old.x)*.012;globe.rotation.x=Math.max(-1.45,Math.min(1.45,globe.rotation.x+(e.clientY-old.y)*.012))}else if(pointers.size===2){const pts=[...pointers.values()],dist=Math.hypot(pts[0].x-pts[1].x,pts[0].y-pts[1].y);if(pinch)camera.position.z=Math.max(1.45,Math.min(9,camera.position.z*pinch/dist));pinch=dist}});
- const end=e=>{pointers.delete(e.pointerId);pinch=0};renderer.domElement.addEventListener("pointerup",end);renderer.domElement.addEventListener("pointercancel",end);
- renderer.domElement.addEventListener("wheel",e=>{e.preventDefault();camera.position.z=Math.max(1.45,Math.min(9,camera.position.z+e.deltaY*.004))},{passive:false});
- const parent=el.parentElement;parent.querySelector('[data-zoom="in"]').onclick=()=>camera.position.z=Math.max(1.45,camera.position.z-.45);
- parent.querySelector('[data-zoom="out"]').onclick=()=>camera.position.z=Math.min(9,camera.position.z+.45);
- parent.querySelector('[data-reset]').onclick=()=>{camera.position.z=3.7;globe.rotation.set(0,0,0)};
- const state={el,renderer,scene,camera,globe,active:true};viewers.push(state);
+ const name=el.dataset.viewer, key=name.toLowerCase(),url=window.PLANET_TEXTURES[key];
+ const canvas=document.createElement('canvas');canvas.setAttribute('aria-label','Interactive globe of '+name);el.replaceChildren(canvas);
+ const hint=document.createElement('div');hint.className='viewer-hint';hint.textContent='Drag to rotate • Pinch to zoom';el.append(hint);
+ const ctx=canvas.getContext('2d',{alpha:false}),source=document.createElement('canvas'),sc=source.getContext('2d',{willReadFrequently:true});
+ let texture=null,longitude=0,latitude=0,zoom=1,lastFrame=0,dragging=false,dirty=true;
+ const pointers=new Map();let lastPinch=0;
+ const image=new Image();
+ image.onload=()=>{source.width=image.naturalWidth;source.height=image.naturalHeight;sc.drawImage(image,0,0);try{texture=sc.getImageData(0,0,source.width,source.height)}catch(e){hint.textContent='Could not read planet map'}dirty=true;};
+ image.onerror=()=>{hint.textContent='Could not load planet map'};
+ image.src=url;
+ const state={el,canvas,ctx,get active(){return el.isConnected},draw(now){
+   if(!texture||!el.isConnected)return;
+   if(now-lastFrame<55)return;
+   if(!dragging){longitude+=0.003;dirty=true;}
+   if(!dirty)return;dirty=false;lastFrame=now;
+   const rect=el.getBoundingClientRect(),side=Math.min(rect.width,rect.height,420),dpr=Math.min(devicePixelRatio||1,1.5);
+   const width=Math.max(1,Math.round(rect.width*dpr)),height=Math.max(1,Math.round(rect.height*dpr));
+   if(canvas.width!==width||canvas.height!==height){canvas.width=width;canvas.height=height}
+   ctx.fillStyle='#071021';ctx.fillRect(0,0,width,height);
+   const radius=Math.min(width,height)*0.37*zoom,cx=width/2,cy=height/2;
+   const output=ctx.createImageData(width,height),dst=output.data,src=texture.data,tw=texture.width,th=texture.height;
+   const r2=radius*radius,sinLat=Math.sin(latitude),cosLat=Math.cos(latitude);
+   const x0=Math.max(0,Math.floor(cx-radius)),x1=Math.min(width,Math.ceil(cx+radius));
+   const y0=Math.max(0,Math.floor(cy-radius)),y1=Math.min(height,Math.ceil(cy+radius));
+   for(let y=y0;y<y1;y++){const ny=(cy-y)/radius;
+    for(let x=x0;x<x1;x++){const nx=(x-cx)/radius,rr=nx*nx+ny*ny;if(rr>1)continue;
+     const nz=Math.sqrt(1-rr),yy=ny*cosLat+nz*sinLat,zz=nz*cosLat-ny*sinLat;
+     const lon=Math.atan2(nx,zz)+longitude,lat=Math.asin(Math.max(-1,Math.min(1,yy)));
+     const u=((lon/(2*Math.PI)+0.5)%1+1)%1,v=0.5-lat/Math.PI;
+     const tx=Math.min(tw-1,Math.floor(u*tw)),ty=Math.min(th-1,Math.floor(v*th));
+     const si=(ty*tw+tx)*4,di=(y*width+x)*4;
+     const shade=Math.max(.18,Math.min(1.15,.30+.9*(nx*-.42+ny*.27+nz*.85)));
+     dst[di]=Math.min(255,src[si]*shade);dst[di+1]=Math.min(255,src[si+1]*shade);dst[di+2]=Math.min(255,src[si+2]*shade);dst[di+3]=255;
+    }
+   }
+   ctx.putImageData(output,0,0);
+   if(name==='Saturn'){ctx.save();ctx.translate(cx,cy);ctx.rotate(-.3);ctx.strokeStyle='#cbb78b';ctx.lineWidth=Math.max(3,radius*.16);ctx.beginPath();ctx.ellipse(0,0,radius*1.55,radius*.43,0,0,Math.PI);ctx.stroke();ctx.restore();}
+ }};
+ const down=e=>{canvas.setPointerCapture(e.pointerId);pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});dragging=true};
+ const move=e=>{if(!pointers.has(e.pointerId))return;const prev=pointers.get(e.pointerId);pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
+ if(pointers.size===1){longitude+=(e.clientX-prev.x)*.012;latitude=Math.max(-1.35,Math.min(1.35,latitude+(e.clientY-prev.y)*.009))}
+ else if(pointers.size===2){const p=[...pointers.values()],distance=Math.hypot(p[0].x-p[1].x,p[0].y-p[1].y);if(lastPinch)zoom=Math.max(.6,Math.min(1.3,zoom*distance/lastPinch));lastPinch=distance}dirty=true};
+ const up=e=>{pointers.delete(e.pointerId);lastPinch=0;dragging=pointers.size>0};
+ canvas.addEventListener('pointerdown',down);canvas.addEventListener('pointermove',move);canvas.addEventListener('pointerup',up);canvas.addEventListener('pointercancel',up);
+ canvas.addEventListener('wheel',e=>{e.preventDefault();zoom=Math.max(.6,Math.min(1.3,zoom-e.deltaY*.001));dirty=true},{passive:false});
+ const parent=el.parentElement;parent.querySelector('[data-zoom="in"]').onclick=()=>{zoom=Math.min(1.3,zoom+.15);dirty=true};
+ parent.querySelector('[data-zoom="out"]').onclick=()=>{zoom=Math.max(.6,zoom-.15);dirty=true};
+ parent.querySelector('[data-reset]').onclick=()=>{zoom=1;longitude=0;latitude=0;dirty=true};
+ viewers.push(state);
 }
-window.initViewers=()=>{viewers.forEach(v=>{v.active=false;v.renderer.dispose();v.renderer.domElement.remove()});viewers=[];document.querySelectorAll("#planetModal:not([hidden]) .viewer").forEach(makeViewer)};
-document.querySelectorAll("[data-tab]").forEach(b=>b.addEventListener("click",()=>setTimeout(window.initViewers,100)));
-window.initViewers();
-function frame(){requestAnimationFrame(frame);for(const v of viewers){if(v.el.isConnected){v.globe.rotation.y+=.001;v.renderer.render(v.scene,v.camera)}}}frame();
+window.initViewers=()=>{viewers=[];document.querySelectorAll('#planetModal:not([hidden]) .viewer').forEach(makeViewer)};
+function animate(now){for(const v of viewers)if(v.active)v.draw(now);requestAnimationFrame(animate)}
+requestAnimationFrame(animate);
 </script></body></html>
