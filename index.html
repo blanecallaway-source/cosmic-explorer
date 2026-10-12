@@ -72,7 +72,7 @@ window.PLANET_TEXTURES={"mercury":"data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQ
 const EMBEDDED_PLANET_TEXTURES={...window.PLANET_TEXTURES};
 window.PHOTO_TEXTURES={Mercury:"https://www.solarsystemscope.com/textures/download/2k_mercury.jpg",Venus:"https://www.solarsystemscope.com/textures/download/2k_venus_surface.jpg",Earth:"https://www.solarsystemscope.com/textures/download/2k_earth_daymap.jpg",Mars:"https://www.solarsystemscope.com/textures/download/2k_mars.jpg",Jupiter:"https://www.solarsystemscope.com/textures/download/2k_jupiter.jpg",Saturn:"https://www.solarsystemscope.com/textures/download/2k_saturn.jpg",Uranus:"https://www.solarsystemscope.com/textures/download/2k_uranus.jpg",Neptune:"https://www.solarsystemscope.com/textures/download/2k_neptune.jpg"};
 // Prefer photographic planetary maps; retain embedded maps as offline fallback.
-Object.entries(window.PHOTO_TEXTURES).forEach(([name,url])=>{const img=new Image();img.onload=()=>{window.PLANET_TEXTURES[name.toLowerCase()]=url;document.querySelectorAll('.globe.'+name.toLowerCase()).forEach(el=>el.style.setProperty('--texture','url("'+url+'")'));};img.src=url;});
+Object.keys(window.PHOTO_TEXTURES).forEach(name=>{const url="textures/"+name.toLowerCase()+".jpg";const img=new Image();img.onload=()=>{document.querySelectorAll(".globe."+name.toLowerCase()).forEach(el=>el.style.setProperty("--texture",'url("'+url+'")'));};img.src=url;});
 function globe(name, size="large"){const textures={Mercury:"mercury",Venus:"venus",Earth:"earth",Mars:"mars",Jupiter:"jupiter",Saturn:"saturn",Uranus:"uranus",Neptune:"neptune"};const tex=textures[name];const ring=name==="Saturn"?"<i class='ring'></i>":"";return `<div class='globe-wrap ${size}' aria-label='Realistic textured ${name}'><div class='globe ${name.toLowerCase()}' style='--texture:url(${window.PLANET_TEXTURES[tex]})'></div>${ring}</div>`}
 window.globeHTML=globe;function detailHTML(p){return `${p.year?`<div class="viewer" data-viewer="${p.name}"><div class="viewer-hint">Drag to rotate • Pinch to zoom</div></div><div class="viewer-tools"><button data-zoom="in">＋ Zoom in</button><button data-zoom="out">－ Zoom out</button><button data-reset="1">Reset view</button></div>`:""}<div class="detail-planet">${p.year?"":globe(p.name)}<div><div class="eyebrow">${p.type||p.kind}</div><h2>${p.name}</h2><p>${p.fact}</p></div></div><div class="stats">${p.distance?`<div class="stat"><strong>Distance / location</strong><span>${p.distance}</span></div>`:""}${p.day?`<div class="stat"><strong>Day length</strong><span>${p.day}</span></div>`:""}${p.year?`<div class="stat"><strong>Year length</strong><span>${p.year}</span></div>`:""}${p.moons?`<div class="stat"><strong>Known moons</strong><span>${p.moons}</span></div>`:""}${p.temp?`<div class="stat"><strong>Temperature</strong><span>${p.temp}</span></div>`:""}${p.air?`<div class="stat"><strong>Atmosphere</strong><span>${p.air}</span></div>`:""}</div>`}
 function choosePlanet(name){const p=planets.find(x=>x.name===name);const modal=document.getElementById('planetModal');document.getElementById('modalBody').innerHTML=detailHTML(p);modal.hidden=false;document.body.style.overflow='hidden';modal.querySelector('.modal-close').focus();setTimeout(()=>window.initViewers?.(),50)}
@@ -91,7 +91,7 @@ renderDeep();
 /* One self-contained spherical renderer, shared embedded texture data, no CDN. */
 let viewers=[];
 function makeViewer(el){
- const name=el.dataset.viewer, key=name.toLowerCase(),url=EMBEDDED_PLANET_TEXTURES[key];
+ const name=el.dataset.viewer, key=name.toLowerCase(),url="textures/"+key+".jpg";
  const canvas=document.createElement('canvas');canvas.setAttribute('aria-label','Interactive globe of '+name);el.replaceChildren(canvas);
  const hint=document.createElement('div');hint.className='viewer-hint';hint.textContent='Drag to rotate • Pinch to zoom';el.append(hint);
  const ctx=canvas.getContext('2d',{alpha:false}),source=document.createElement('canvas'),sc=source.getContext('2d',{willReadFrequently:true});
@@ -99,7 +99,7 @@ function makeViewer(el){
  const pointers=new Map();let lastPinch=0;
  const image=new Image();
  image.onload=()=>{source.width=image.naturalWidth;source.height=image.naturalHeight;sc.drawImage(image,0,0);try{texture=sc.getImageData(0,0,source.width,source.height)}catch(e){hint.textContent='Could not read planet map: '+e.message}dirty=true;};
- image.onerror=()=>{hint.textContent='Could not load planet map'};
+ image.onerror=()=>{hint.textContent='Loading built-in planet map';image.onerror=()=>{hint.textContent='Planet map unavailable'};image.src=EMBEDDED_PLANET_TEXTURES[key]};
  image.src=url;
  const state={el,canvas,ctx,get active(){return el.isConnected},draw(now){
    if(!texture||!el.isConnected)return;
@@ -129,7 +129,7 @@ function makeViewer(el){
    ctx.putImageData(output,0,0);
    if(name==='Saturn'){
      // Tilted rings: rear half is masked by the planet, near half crosses its foreground.
-     ctx.save();ctx.translate(cx,cy);ctx.rotate(-.35);
+     ctx.save();ctx.translate(cx,cy);ctx.rotate(-.35+longitude*.45);
      const bands=[[1.29,1.37,'#c9bda0',.42],[1.40,1.51,'#eee1bf',.78],[1.55,1.62,'#5d5146',.34],[1.67,1.82,'#d4c3a1',.72],[1.86,1.94,'#a58e6e',.55]];
      // Paint only ring pixels outside the planetary disc on the far side.
      ctx.save();ctx.beginPath();ctx.rect(-width,-height,width*2,height*2);ctx.arc(0,0,radius,0,Math.PI*2,true);ctx.clip('evenodd');
