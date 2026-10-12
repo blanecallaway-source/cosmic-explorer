@@ -24,7 +24,7 @@ jobs:
             'mercury':['https://raw.githubusercontent.com/sudoaanish/COSMOS/master/assets/textures/mercury-2k.jpg'],
             'venus':['https://raw.githubusercontent.com/sudoaanish/COSMOS/master/assets/textures/venus-2k.jpg'],
             'earth':['https://raw.githubusercontent.com/sudoaanish/COSMOS/master/assets/textures/earth-2k.jpg','https://raw.githubusercontent.com/homer-jay/solar-system-textures/main/earth_daymap.jpg'],
-            'moon':['https://raw.githubusercontent.com/sudoaanish/COSMOS/master/assets/textures/moon-2k.jpg','https://raw.githubusercontent.com/sudoaanish/COSMOS/master/assets/textures/moon.jpg'],
+            'moon':['https://raw.githubusercontent.com/turban/webgl-earth/master/images/moon.jpg','https://raw.githubusercontent.com/turban/webgl-earth/master/images/moon2048.jpg','https://www.solarsystemscope.com/textures/download/2k_moon.jpg'],
             'mars':['https://raw.githubusercontent.com/sudoaanish/COSMOS/master/assets/textures/mars-2k.jpg'],
             'jupiter':['https://raw.githubusercontent.com/sudoaanish/COSMOS/master/assets/textures/jupiter-2k.jpg'],
             'saturn':['https://raw.githubusercontent.com/sudoaanish/COSMOS/master/assets/textures/saturn-2k.jpg'],
