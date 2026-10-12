@@ -33,11 +33,11 @@ jobs:
               req=Request(url,headers={'User-Agent':'Mozilla/5.0 (compatible; CosmicExplorer/1.0)'})
               with urlopen(req,timeout=45) as response: return response.read()
           def valid(data):
-              return len(data)>10000 and data[:3]==b'\\xff\\xd8\\xff'
+              return len(data)>10000 and data[:3]==bytes([255,216,255])
           Path('textures').mkdir(exist_ok=True)
           rocky=['mercury','venus','earth','moon','mars']
           for name in rocky:
-              page='https://maps.jpl.nasa.gov/tmaps/'+('earth' if name=='moon' else name)+'.html'
+              page='https://maps.jpl.nasa.gov/tmaps/'+name+'.html'
               try:
                   html=download(page).decode('latin1')
                   parser=Links();parser.feed(html)
