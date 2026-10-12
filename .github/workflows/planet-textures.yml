@@ -1,4 +1,4 @@
-name: Install NASA and planetary texture maps
+name: Install verified planetary maps
 on:
   workflow_dispatch:
   push:
@@ -11,63 +11,46 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          persist-credentials: true
-      - name: Download and verify planet maps
+      - name: Fetch existing CC BY planetary textures from GitHub mirrors
         shell: bash
         run: |
           set -euo pipefail
           python3 - <<'PY'
-          from html.parser import HTMLParser
-          from urllib.request import Request, urlopen
-          from urllib.parse import urljoin, urlparse
           from pathlib import Path
-          import time
-          class Links(HTMLParser):
-              def __init__(self): super().__init__(); self.links=[]
-              def handle_starttag(self, tag, attrs):
-                  if tag == 'a':
-                      href=dict(attrs).get('href','')
-                      if href.lower().split('?')[0].endswith(('.jpg','.jpeg')): self.links.append(href)
-          def download(url):
-              req=Request(url,headers={'User-Agent':'Mozilla/5.0 (compatible; CosmicExplorer/1.0)'})
-              with urlopen(req,timeout=45) as response: return response.read()
-          def valid(data):
-              return len(data)>10000 and data[:3]==bytes([255,216,255])
+          from urllib.request import urlopen, Request
+          from urllib.error import HTTPError, URLError
+          import struct
+          sources={
+            'mercury':['https://raw.githubusercontent.com/sudoaanish/COSMOS/master/assets/textures/mercury-2k.jpg'],
+            'venus':['https://raw.githubusercontent.com/sudoaanish/COSMOS/master/assets/textures/venus-2k.jpg'],
+            'earth':['https://raw.githubusercontent.com/sudoaanish/COSMOS/master/assets/textures/earth-2k.jpg','https://raw.githubusercontent.com/homer-jay/solar-system-textures/main/earth_daymap.jpg'],
+            'moon':['https://raw.githubusercontent.com/homer-jay/solar-system-textures/main/moon.jpg'],
+            'mars':['https://raw.githubusercontent.com/sudoaanish/COSMOS/master/assets/textures/mars-2k.jpg'],
+            'jupiter':['https://raw.githubusercontent.com/sudoaanish/COSMOS/master/assets/textures/jupiter-2k.jpg'],
+            'saturn':['https://raw.githubusercontent.com/sudoaanish/COSMOS/master/assets/textures/saturn-2k.jpg'],
+            'uranus':['https://raw.githubusercontent.com/sudoaanish/COSMOS/master/assets/textures/uranus-2k.jpg'],
+            'neptune':['https://raw.githubusercontent.com/sudoaanish/COSMOS/master/assets/textures/neptune-2k.jpg']
+          }
+          def is_jpeg(data):
+              return len(data)>10000 and data[:3]==bytes((255,216,255)) and data[-2:]==bytes((255,217))
           Path('textures').mkdir(exist_ok=True)
-          rocky=['mercury','venus','earth','moon','mars']
-          for name in rocky:
-              page='https://maps.jpl.nasa.gov/tmaps/'+name+'.html'
-              try:
-                  html=download(page).decode('latin1')
-                  parser=Links();parser.feed(html)
-                  urls=[urljoin(page,link) for link in parser.links]
-                  if not urls: raise RuntimeError('No JPEG download links on '+page)
-                  data=None
-                  for url in urls:
-                      try:
-                          candidate=download(url)
-                          if valid(candidate): data=candidate;print('JPL:',name,url,len(data));break
-                      except Exception as ex: print('JPL image failed:',url,ex)
-                  if data is None: raise RuntimeError('No valid JPL JPEG found for '+name)
-              except Exception as ex:
-                  print('JPL unavailable for',name,ex,'; trying secondary photographic map')
-                  alias={'venus':'venus_surface','earth':'earth_daymap','moon':'moon'}.get(name,name)
-                  data=download('https://www.solarsystemscope.com/textures/download/2k_'+alias+'.jpg')
-              if not valid(data): raise RuntimeError('Invalid image for '+name)
-              Path('textures/'+name+'.jpg').write_bytes(data)
-          for name in ['jupiter','saturn','uranus','neptune']:
-              url='https://www.solarsystemscope.com/textures/download/2k_'+name+'.jpg'
-              data=download(url)
-              if not valid(data): raise RuntimeError('Invalid image for '+name)
-              Path('textures/'+name+'.jpg').write_bytes(data)
-              print('Installed:',name,len(data))
-          for name in ['mercury','venus','earth','moon','mars','jupiter','saturn','uranus','neptune']:
-              path=Path('textures/'+name+'.jpg')
-              if not path.exists() or not valid(path.read_bytes()): raise RuntimeError('Missing or corrupt '+name)
-          print('All 9 texture files verified')
+          failures=[]
+          for planet,urls in sources.items():
+              done=False
+              for url in urls:
+                  try:
+                      req=Request(url,headers={'User-Agent':'CosmicExplorer-texture-installer'})
+                      with urlopen(req,timeout=35) as resp: data=resp.read()
+                      if not is_jpeg(data): raise ValueError('Not a complete JPEG: '+str(len(data))+' bytes')
+                      Path('textures',planet+'.jpg').write_bytes(data)
+                      print('INSTALLED',planet,len(data),'bytes',url,flush=True)
+                      done=True;break
+                  except Exception as exc: print('SOURCE FAILED',planet,url,repr(exc),flush=True)
+              if not done: failures.append(planet)
+          if failures: raise SystemExit('Could not install textures: '+', '.join(failures))
+          print('SUCCESS: all nine JPEGs present')
           PY
-      - name: Commit installed image files
+      - name: Commit textures to site
         shell: bash
         run: |
           set -euo pipefail
@@ -75,6 +58,6 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add textures/
           if ! git diff --cached --quiet; then
-            git commit -m "Install verified planetary photo textures"
+            git commit -m "Install licensed realistic planet textures"
             git push origin HEAD:main
           fi
