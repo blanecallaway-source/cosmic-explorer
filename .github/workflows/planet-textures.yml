@@ -1,0 +1,35 @@
+name: Install photographic planet maps
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/planet-textures.yml'
+permissions:
+  contents: write
+jobs:
+  textures:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download high-resolution planet maps
+        run: |
+          set -e
+          mkdir -p textures
+          for planet in mercury venus_surface earth_daymap mars jupiter saturn uranus neptune; do
+            case "$planet" in
+              venus_surface) name=venus ;;
+              earth_daymap) name=earth ;;
+              *) name="$planet" ;;
+            esac
+            curl --fail --location --retry 3 --silent --show-error "https://www.solarsystemscope.com/textures/download/2k_${planet}.jpg" -o "textures/${name}.jpg"
+            test "$(wc -c < "textures/${name}.jpg")" -gt 10000
+          done
+      - name: Commit downloaded textures
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add textures/
+          if ! git diff --cached --quiet; then
+            git commit -m "Add high-resolution photographic planetary maps"
+            git push
+          fi
