@@ -104,7 +104,7 @@ const deepCatalog=[
 {name:"SN 1987A",category:"Supernovae",kind:"Supernova remnant",distance:"About 168,000 light-years",galaxy:"Large Magellanic Cloud",fact:"A nearby supernova observed in 1987.",icon:"💥"},
 {name:"The Great Attractor",category:"The Great Attractor",kind:"Gravitational region",distance:"Roughly 150–250 million light-years",galaxy:"Large-scale structure, not a single galaxy",fact:"A region associated with the motion of galaxies in our cosmic neighborhood.",icon:"🧲"}
 ];
-let exoplanetCatalog=[],deepActiveCategory="",deepLoading=false,deepLoadError="";
+let exoplanetCatalog=[],deepActiveCategory="",deepLoading=false,deepLoadError="",deepVisibleCount=60;
 const deepEsc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 async function loadExoplanets(){
  if(deepLoading||exoplanetCatalog.length)return;
@@ -134,17 +134,18 @@ function renderDeep(filter=""){
  const all=[...deepCatalog,...exoplanetCatalog];
  const found=all.filter(o=>(!deepActiveCategory||o.category===deepActiveCategory)&&(!q||(o.name+" "+o.kind+" "+o.galaxy+" "+(o.host||"")).toLowerCase().includes(q)));
  const title='<div style="grid-column:1/-1"><button class="pill" data-deep-back="1" style="cursor:pointer">← All categories</button><p class="note">'+(deepActiveCategory?deepEsc(deepActiveCategory)+" · ":"")+(deepLoading?"Loading NASA catalog…":found.length+" objects found")+'</p></div>';
- grid.innerHTML=title+found.slice(0,180).map(o=>'<button class="card" data-deep="'+deepEsc(o.name)+'"><div class="planet">'+deepEsc(o.icon)+'</div><h3>'+deepEsc(o.name)+'</h3><p>'+deepEsc(o.kind)+'</p><span class="pill">View facts</span></button>').join("")+(deepLoadError?'<p style="grid-column:1/-1">'+deepEsc(deepLoadError)+'</p>':(!found.length?'<p style="grid-column:1/-1">No matches found.</p>':found.length>180?'<p style="grid-column:1/-1">Showing the first 180 matches. Refine your search to find more.</p>':''));
+ grid.innerHTML=title+found.slice(0,deepVisibleCount).map(o=>'<button class="card" data-deep="'+deepEsc(o.name)+'"><div class="planet">'+deepEsc(o.icon)+'</div><h3>'+deepEsc(o.name)+'</h3><p>'+deepEsc(o.kind)+'</p><span class="pill">View facts</span></button>').join("")+(deepLoadError?'<p style="grid-column:1/-1">'+deepEsc(deepLoadError)+'</p>':(!found.length?'<p style="grid-column:1/-1">No matches found.</p>':found.length>deepVisibleCount?'<button class="pill" data-deep-more="1" style="grid-column:1/-1;cursor:pointer;padding:14px">Load more ('+Math.min(deepVisibleCount,found.length)+' of '+found.length+')</button>':''));
 }
 document.addEventListener("click",e=>{
- const category=e.target.closest("[data-deep-category]");if(category){deepActiveCategory=category.dataset.deepCategory;renderDeep(document.getElementById("deepSearch").value);if(deepActiveCategory==="Exoplanets")loadExoplanets();}
- if(e.target.closest("[data-deep-back]")){deepActiveCategory="";document.getElementById("deepSearch").value="";renderDeep();}
+ const category=e.target.closest("[data-deep-category]");if(category){deepActiveCategory=category.dataset.deepCategory;deepVisibleCount=60;renderDeep(document.getElementById("deepSearch").value);if(deepActiveCategory==="Exoplanets")loadExoplanets();}
+ if(e.target.closest("[data-deep-more]")){deepVisibleCount+=60;renderDeep(document.getElementById("deepSearch").value);}
+ if(e.target.closest("[data-deep-back]")){deepVisibleCount=60;deepActiveCategory="";document.getElementById("deepSearch").value="";renderDeep();}
 });
 loadExoplanets();
 document.addEventListener('click',e=>{const b=e.target.closest('[data-deep]');if(b)chooseDeep(b.dataset.deep);});
 document.querySelectorAll("[data-tab]").forEach(b=>b.addEventListener("click",()=>{document.querySelectorAll("[data-tab]").forEach(x=>x.classList.toggle("active",x===b));document.querySelectorAll(".section").forEach(s=>s.classList.toggle("active",s.id===b.dataset.tab))}));
 document.addEventListener("click",e=>{const b=e.target.closest("[data-planet]");if(b)choosePlanet(b.dataset.planet)});
-document.getElementById("deepSearch").addEventListener("input",e=>renderDeep(e.target.value));
+document.getElementById("deepSearch").addEventListener("input",e=>{deepVisibleCount=60;renderDeep(e.target.value);});
 renderDeep();
 </script><div id="planetModal" class="modal" hidden role="dialog" aria-modal="true" aria-label="Planet details"><div class="modal-panel"><button class="modal-close" aria-label="Close planet information">✕ Close</button><div id="modalBody"></div></div></div><script>
 /* One self-contained spherical renderer, shared embedded texture data, no CDN. */
