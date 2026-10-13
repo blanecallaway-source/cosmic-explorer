@@ -88,8 +88,59 @@ function closePlanet(){document.getElementById('planetModal').hidden=true;docume
 document.addEventListener('click',e=>{if(e.target.closest('.modal-close')||e.target.id==='planetModal')closePlanet()});document.addEventListener('keydown',e=>{if(e.key==='Escape')closePlanet()});
 document.getElementById("planetGrid").innerHTML=planets.map(p=>`<button class="card" data-planet="${p.name}">${globe(p.name,"small")}<h3>${p.name}</h3><p>${p.type}</p><span class="pill">${p.moons} moon${p.moons==="1"?"":"s"}</span></button>`).join("");
 document.getElementById("orbit").innerHTML=`<button aria-label="Sun" data-planet="Earth">☀️</button>`+planets.map(p=>`<button aria-label="${p.name}" title="${p.name}" data-planet="${p.name}">${p.icon}</button>`).join("");
-function chooseDeep(name){const o=deepObjects.find(x=>x.name===name);if(!o)return;const modal=document.getElementById('planetModal');document.getElementById('modalBody').innerHTML=detailHTML(o);modal.hidden=false;document.body.style.overflow='hidden';modal.querySelector('.modal-close').focus();}
-function renderDeep(filter=""){const arr=deepObjects.filter(o=>(o.name+" "+o.kind+" "+o.fact).toLowerCase().includes(filter.toLowerCase()));document.getElementById("deepGrid").innerHTML=arr.map(o=>`<button class="card" data-deep="${o.name}"><div class="planet">${o.icon}</div><h3>${o.name}</h3><p>${o.kind}</p><span class="pill">Explore object</span></button>`).join("")||"<p>No matches yet. Try another search.</p>";}
+
+/* Deep Space catalog — independent of the Space Simulator. */
+const deepCatalog=[
+{name:"Sagittarius A*",category:"Black Holes",kind:"Supermassive black hole",distance:"About 26,000 light-years",galaxy:"Milky Way",fact:"The supermassive black hole at the center of our galaxy.",icon:"⚫",mass:"About 4 million solar masses"},
+{name:"M87*",category:"Black Holes",kind:"Supermassive black hole",distance:"About 55 million light-years",galaxy:"Messier 87 (Virgo A)",fact:"The first black hole whose shadow was imaged by the Event Horizon Telescope.",icon:"⚫",mass:"About 6.5 billion solar masses"},
+{name:"Cygnus X-1",category:"Black Holes",kind:"Stellar-mass black hole",distance:"About 7,200 light-years",galaxy:"Milky Way",fact:"A famous X-ray binary containing a black hole and a massive companion star.",icon:"⚫"},
+{name:"Andromeda Galaxy",category:"Galaxies",kind:"Spiral galaxy",distance:"About 2.5 million light-years",galaxy:"Andromeda Galaxy",fact:"The nearest major spiral galaxy to the Milky Way.",icon:"🌀"},
+{name:"Triangulum Galaxy",category:"Galaxies",kind:"Spiral galaxy",distance:"About 2.7 million light-years",galaxy:"Triangulum Galaxy",fact:"Also known as Messier 33, a member of the Local Group.",icon:"🌀"},
+{name:"Whirlpool Galaxy",category:"Galaxies",kind:"Spiral galaxy",distance:"About 23 million light-years",galaxy:"Whirlpool Galaxy (M51)",fact:"A spiral galaxy interacting with its smaller companion.",icon:"🌀"},
+{name:"Orion Nebula",category:"Nebulae",kind:"Star-forming nebula",distance:"About 1,350 light-years",galaxy:"Milky Way",fact:"A nearby stellar nursery in Orion's sword.",icon:"☁️"},
+{name:"Crab Nebula",category:"Nebulae",kind:"Supernova remnant",distance:"About 6,500 light-years",galaxy:"Milky Way",fact:"The expanding remnant of the supernova observed in 1054.",icon:"☁️"},
+{name:"Eagle Nebula",category:"Nebulae",kind:"Emission nebula",distance:"About 6,500 light-years",galaxy:"Milky Way",fact:"Home to the famous Pillars of Creation.",icon:"☁️"},
+{name:"Vela Pulsar",category:"Neutron Stars",kind:"Pulsar",distance:"About 960 light-years",galaxy:"Milky Way",fact:"A rapidly rotating neutron star in the Vela supernova remnant.",icon:"💠"},
+{name:"SN 1987A",category:"Supernovae",kind:"Supernova remnant",distance:"About 168,000 light-years",galaxy:"Large Magellanic Cloud",fact:"A nearby supernova observed in 1987.",icon:"💥"},
+{name:"The Great Attractor",category:"The Great Attractor",kind:"Gravitational region",distance:"Roughly 150–250 million light-years",galaxy:"Large-scale structure, not a single galaxy",fact:"A region associated with the motion of galaxies in our cosmic neighborhood.",icon:"🧲"}
+];
+let exoplanetCatalog=[],deepActiveCategory="",deepLoading=false,deepLoadError="";
+const deepEsc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+async function loadExoplanets(){
+ if(deepLoading||exoplanetCatalog.length)return;
+ deepLoading=true;deepLoadError="";renderDeep(document.getElementById("deepSearch").value);
+ try{
+  const query="select pl_name,hostname,sy_dist,pl_rade,pl_bmasse,pl_orbper,pl_eqt,disc_year,discoverymethod from pscomppars";
+  const response=await fetch("https://exoplanetarchive.ipac.caltech.edu/TAP/sync?query="+encodeURIComponent(query)+"&format=json");
+  if(!response.ok)throw Error("NASA catalog temporarily unavailable");
+  const rows=await response.json();
+  exoplanetCatalog=rows.map(p=>({name:p.pl_name,category:"Exoplanets",kind:"Confirmed exoplanet",distance:p.sy_dist==null?"Not reported":(Number(p.sy_dist)*3.26156).toLocaleString(undefined,{maximumFractionDigits:1})+" light-years",galaxy:"Milky Way",fact:"Orbits "+p.hostname+". Discovery method: "+(p.discoverymethod||"Not reported")+".",icon:"🪐",host:p.hostname,year:p.disc_year,radius:p.pl_rade,mass:p.pl_bmasse,period:p.pl_orbper,temp:p.pl_eqt})).filter(p=>p.name);
+ }catch(err){deepLoadError="Could not load NASA's live exoplanet catalog. Check your connection and try again.";}
+ finally{deepLoading=false;renderDeep(document.getElementById("deepSearch").value);}
+}
+function deepObjectHTML(o){
+ const stats=[["Distance from Earth",o.distance],["Galaxy / location",o.galaxy],["Object type",o.kind],["Host star",o.host],["Discovery year",o.year],["Mass",o.mass||(o.category==="Exoplanets"&&o.mass!==undefined&&o.mass!==null?o.mass+" Earth masses":null)],["Radius",o.radius!=null?o.radius+" Earth radii":null],["Orbital period",o.period!=null?o.period+" days":null],["Estimated equilibrium temperature",o.temp!=null?o.temp+" K":null]].filter(x=>x[1]!=null&&x[1]!=="");
+ return '<div class="detail-planet"><div class="planet" style="font-size:90px;min-width:130px;text-align:center">'+deepEsc(o.icon)+'</div><div><div class="eyebrow">'+deepEsc(o.category)+'</div><h2>'+deepEsc(o.name)+'</h2><p>'+deepEsc(o.fact)+'</p><p class="note">Symbolic illustration — not an actual photograph.</p></div></div><div class="stats">'+stats.map(x=>'<div class="stat"><strong>'+deepEsc(x[0])+'</strong><span>'+deepEsc(x[1])+'</span></div>').join('')+'</div>';
+}
+function chooseDeep(name){
+ const o=[...deepCatalog,...exoplanetCatalog].find(x=>x.name===name);if(!o)return;
+ const modal=document.getElementById("planetModal");document.getElementById("modalBody").innerHTML=deepObjectHTML(o);modal.hidden=false;document.body.style.overflow="hidden";modal.querySelector(".modal-close").focus();
+}
+function renderDeep(filter=""){
+ const grid=document.getElementById("deepGrid");const q=filter.trim().toLowerCase();
+ if(!q&&!deepActiveCategory){
+  grid.innerHTML=deepObjects.map(o=>'<button class="card" data-deep-category="'+deepEsc(o.name)+'"><div class="planet">'+o.icon+'</div><h3>'+deepEsc(o.name)+'</h3><p>'+deepEsc(o.kind)+'</p><span class="pill">Explore objects</span></button>').join("");return;
+ }
+ const all=[...deepCatalog,...exoplanetCatalog];
+ const found=all.filter(o=>(!deepActiveCategory||o.category===deepActiveCategory)&&(!q||(o.name+" "+o.kind+" "+o.galaxy+" "+(o.host||"")).toLowerCase().includes(q)));
+ const title='<div style="grid-column:1/-1"><button class="pill" data-deep-back="1" style="cursor:pointer">← All categories</button><p class="note">'+(deepActiveCategory?deepEsc(deepActiveCategory)+" · ":"")+(deepLoading?"Loading NASA catalog…":found.length+" objects found")+'</p></div>';
+ grid.innerHTML=title+found.slice(0,180).map(o=>'<button class="card" data-deep="'+deepEsc(o.name)+'"><div class="planet">'+deepEsc(o.icon)+'</div><h3>'+deepEsc(o.name)+'</h3><p>'+deepEsc(o.kind)+'</p><span class="pill">View facts</span></button>').join("")+(deepLoadError?'<p style="grid-column:1/-1">'+deepEsc(deepLoadError)+'</p>':(!found.length?'<p style="grid-column:1/-1">No matches found.</p>':found.length>180?'<p style="grid-column:1/-1">Showing the first 180 matches. Refine your search to find more.</p>':''));
+}
+document.addEventListener("click",e=>{
+ const category=e.target.closest("[data-deep-category]");if(category){deepActiveCategory=category.dataset.deepCategory;renderDeep(document.getElementById("deepSearch").value);if(deepActiveCategory==="Exoplanets")loadExoplanets();}
+ if(e.target.closest("[data-deep-back]")){deepActiveCategory="";document.getElementById("deepSearch").value="";renderDeep();}
+});
+loadExoplanets();
 document.addEventListener('click',e=>{const b=e.target.closest('[data-deep]');if(b)chooseDeep(b.dataset.deep);});
 document.querySelectorAll("[data-tab]").forEach(b=>b.addEventListener("click",()=>{document.querySelectorAll("[data-tab]").forEach(x=>x.classList.toggle("active",x===b));document.querySelectorAll(".section").forEach(s=>s.classList.toggle("active",s.id===b.dataset.tab))}));
 document.addEventListener("click",e=>{const b=e.target.closest("[data-planet]");if(b)choosePlanet(b.dataset.planet)});
